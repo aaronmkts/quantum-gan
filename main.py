@@ -297,7 +297,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_tensorboard', type=str2bool, default=False)
 
     # Directories.
-    parser.add_argument('--mol_data_dir', type=str, default='data/gdb9_9nodes.sparsedataset')
+    parser.add_argument('--mol_data_dir', type=str, default='data/qm9_5k.sparsedataset')
     parser.add_argument('--log_dir', type=str, default='molgan/logs')
     parser.add_argument('--model_save_dir', type=str, default='molgan/models')
     parser.add_argument('--sample_dir', type=str, default='molgan/samples')
