@@ -78,15 +78,17 @@ def main(config):
         # =================================================================================== #
         #                             1. Preprocess input data                                #
         # =================================================================================== #
-
+        
         a = torch.from_numpy(a).to(self.device).long()            # Adjacency.
         x = torch.from_numpy(x).to(self.device).long()            # Nodes.
+        
         a_tensor = self.label2onehot(a, self.b_dim)
         x_tensor = self.label2onehot(x, self.m_dim)
-        
+    
         if config.quantum:
             sample_list = [gen_circuit(gen_weights) for i in range(self.batch_size)]
-            z = torch.stack(tuple(sample_list)).to(self.device).float()
+            z = torch.stack([torch.stack(batch) for batch in sample_list]).to(self.device).float()
+
         else:
             z = self.sample_z(self.batch_size)
             z = torch.from_numpy(z).to(self.device).float()
@@ -96,6 +98,7 @@ def main(config):
         # =================================================================================== #
 
         # Compute loss with real images.
+        
         logits_real, features_real = self.D(a_tensor, None, x_tensor)
         d_loss_real = - torch.mean(logits_real)
 
@@ -112,7 +115,7 @@ def main(config):
         x_int1 = (eps.squeeze(-1) * x_tensor + (1. - eps.squeeze(-1)) * nodes_hat).requires_grad_(True)
         grad0, grad1 = self.D(x_int0, None, x_int1)
         d_loss_gp = self.gradient_penalty(grad0, x_int0) + self.gradient_penalty(grad1, x_int1)
-
+        
 
         # Backward and optimize.
         d_loss = d_loss_fake + d_loss_real + self.lambda_gp * d_loss_gp
@@ -137,16 +140,18 @@ def main(config):
             (edges_hat, nodes_hat) = self.postprocess((edges_logits, nodes_logits), self.post_method)
             logits_fake, features_fake = self.D(edges_hat, None, nodes_hat)
             g_loss_fake = - torch.mean(logits_fake)
-
+            
             # Real Reward
+            
             rewardR = torch.from_numpy(self.reward(mols)).to(self.device)
+            
             # Fake Reward
             (edges_hard, nodes_hard) = self.postprocess((edges_logits, nodes_logits), 'hard_gumbel')
             edges_hard, nodes_hard = torch.max(edges_hard, -1)[1], torch.max(nodes_hard, -1)[1]
             mols = [self.data.matrices2mol(n_.data.cpu().numpy(), e_.data.cpu().numpy(), strict=True)
                     for e_, n_ in zip(edges_hard, nodes_hard)]
             rewardF = torch.from_numpy(self.reward(mols)).to(self.device)
-
+            
             # Value loss
             value_logit_real,_ = self.V(a_tensor, None, x_tensor, torch.sigmoid)
             value_logit_fake,_ = self.V(edges_hat, None, nodes_hat, torch.sigmoid)
@@ -223,7 +228,7 @@ def main(config):
                 log += ", {}: {:.4f}".format(tag, value)
             print(log)
 
-            with open(os.path.join(self.resutl_dir, 'metric_scores_log.csv'), 'a') as file:
+            with open(os.path.join(self.result_dir, 'metric_scores_log.csv'), 'a') as file:
                 writer = csv.writer(file)
                 writer.writerow([i+1, et]+[torch.mean(rewardR).item(), torch.mean(rewardF).item()]+\
                                [value for tag, value in loss.items()])
