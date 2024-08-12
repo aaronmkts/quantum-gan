@@ -25,6 +25,7 @@ class Solver(object):
 
         # Model configurations.
         self.z_dim = config.qubits
+
         self.m_dim = self.data.atom_num_types
         self.b_dim = self.data.bond_num_types
         self.g_conv_dim = config.g_conv_dim
@@ -36,7 +37,7 @@ class Solver(object):
         self.lambda_gp = config.lambda_gp
         self.post_method = config.post_method
 
-        self.metric = 'validity,sas'
+        self.metric = 'all'
 
         # Training configurations.
         self.batch_size = config.batch_size
@@ -193,25 +194,29 @@ class Solver(object):
 
             if m == 'np':
                 rr *= MolecularMetrics.natural_product_scores(mols, norm=True)
+
             elif m == 'logp':
                 rr *= MolecularMetrics.water_octanol_partition_coefficient_scores(mols, norm=True)
+
             elif m == 'sas':
+
                 rr *= MolecularMetrics.synthetic_accessibility_score_scores(mols, norm=True)
+
             elif m == 'qed':
                 rr *= MolecularMetrics.quantitative_estimation_druglikeness_scores(mols, norm=True)
             elif m == 'novelty':
-                rr *= MolecularMetrics.novel_scores(mols, data)
+                rr *= MolecularMetrics.novel_scores(mols, self.data)
             elif m == 'dc':
-                rr *= MolecularMetrics.drugcandidate_scores(mols, data)
+                rr *= MolecularMetrics.drugcandidate_scores(mols, self.data)
             elif m == 'unique':
                 rr *= MolecularMetrics.unique_scores(mols)
             elif m == 'diversity':
-                rr *= MolecularMetrics.diversity_scores(mols, data)
+                rr *= MolecularMetrics.diversity_scores(mols, self.data)
             elif m == 'validity':
                 rr *= MolecularMetrics.valid_scores(mols)
             else:
                 raise RuntimeError('{} is not defined as a metric'.format(m))
-
+        
         return rr.reshape(-1, 1)
 
     def train(self):
@@ -333,6 +338,7 @@ class Solver(object):
                 log = "Elapsed [{}], Iteration [{}/{}]".format(et, i+1, self.num_iters)
 
                 # Log update
+                
                 m0, m1 = all_scores(mols, self.data, norm=True)     # 'mols' is output of Fake Reward
                 m0 = {k: np.array(v)[np.nonzero(v)].mean() for k, v in m0.items()}
                 m0.update(m1)
